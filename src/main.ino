@@ -1,116 +1,110 @@
 /**
  * 3DRaion 2018
- * Raion Industrial Robot Arm with IR Controller
+ * Raion Industrial 6-axis Robot Arm
  */
 
 #include <Arduino.h>
 #include <Servo.h>
-#include <IRremote.h>
 
-// You will have to set these values depending on the protocol
-// and remote codes that you are using. These are for Raion remote control
-#define MY_PROTOCOL NEC
-#define RIGHT_BUTTON 0xFF7A85  // Move several clockwise
-#define LEFT_BUTTON 0xFF30CF   // Move servo counterclockwise
-#define SELECT_BUTTON 0xFF18E7 // Center the servo
-#define UP_BUTTON 0xFF9867     // Increased number of degrees servo moves
-#define DOWN_BUTTON 0xFF38C7   // Decrease number of degrees servo moves
-#define BUTTON_1_PLAY 0xFF22DD // Pushing buttons 1-6 moves to fixed positions
-#define BUTTON_2_INT 0xFF02FD  // each 20 degrees greater
-#define BUTTON_3_RPT 0xFFC23D
-#define BUTTON_4_RDM 0xFFE01F
-#define BUTTON_5_10M 0xFFA857
-#define BUTTON_6_10P 0xFF906F
+Servo servo1;               // create servo object to control a servo
+Servo servo2;               // create servo object to control a servo
+Servo servo3;               // create servo object to control a servo
+Servo servo4;               // create servo object to control a servo
+Servo servo5;               // create servo object to control a servo
+Servo servo6;               // create servo object to control a servo
+const int SERVO_PIN_1 = 3;  // defines PIN for servo (PWM)
+const int SERVO_PIN_2 = 5;  // defines PIN for servo (PWM)
+const int SERVO_PIN_3 = 6;  // defines PIN for servo (PWM)
+const int SERVO_PIN_4 = 9;  // defines PIN for servo (PWM)
+const int SERVO_PIN_5 = 10; // defines PIN for servo (PWM)
+const int SERVO_PIN_6 = 11; // defines PIN for servo (PWM)
+const int INIT_POS = 0;     // start at midpoint 0 degrees
+const int INIT_SPEED = 3;   // by default servo moves 3 degrees each time left/right is pushed
+const int DELAY = 1000;     // delays in ms between servo actions
+// int pos;                  // variable to store the servo position
+// int speed;                // Number of degrees to move each time a move button is pressed
 
-Servo myServo;            // create servo object to control a servo
-const int SERVO_PIN = 9;  // defines PIN for servo (PWM)
-const int INIT_POS = 90;  // start at midpoint 90 degrees
-const int INIT_SPEED = 3; // by default servo moves 3 degrees each time left/right is pushed
-int16_t pos;              // variable to store the servo position
-int16_t speed;            // Number of degrees to move each time a move button is pressed
-
-const int RECV_PIN = 7;         // defines pin for IR receiver
-IRrecv irrecv(RECV_PIN);        // attach defined PIN to the IR Receiver
-decode_results results;         // store received key value
-unsigned long previous_key = 0; // to store the previous key value when key decoded is 0xFFFFFFFF
-
-void setup()
-{
+void setup() {
   Serial.begin(9600);
+  while (!Serial)
+    ; // wait for serial connection, this loop allows dev to see initializing procedure
   Serial.println("");
   Serial.println("Raion Industrial Robot Arm with IR Controller");
-  Serial.println("Initializing Servo...");
-  myServo.attach(SERVO_PIN);
-  pos = INIT_POS;
-  speed = INIT_SPEED;
-  myServo.write(pos);
-  Serial.println("Servo set to initial position");
-
-  irrecv.enableIRIn();
-  irrecv.blink13(true);
-  Serial.println("Start IR Receiver : OK");
+  Serial.println("-------------------------");
+  delay(1000);
+  Serial.print("Initializing servos... ");
+  servo1.attach(SERVO_PIN_1);
+  servo2.attach(SERVO_PIN_2);
+  servo3.attach(SERVO_PIN_3);
+  servo4.attach(SERVO_PIN_4);
+  servo5.attach(SERVO_PIN_5);
+  servo6.attach(SERVO_PIN_6);
+  initServos();
+  Serial.println("Done");
+  Serial.println("-------------------------");
+  Serial.println("Write command to perform action");
+  Serial.println("-------------------------");
 }
 
-void loop()
-{
-  if (irrecv.decode(&results))
-  {
-    Serial.println("Code received");
-    Serial.println(results.value, HEX);
-    if (results.value == 0XFFFFFFFF)
-    {
-      results.value = previous_key;
-    }
+void loop() {
+  if (Serial.available()) {
+    String input = Serial.readString();
+    Serial.print("Input string : ");
+    Serial.println(input);
+    int state = input.toInt();
 
-    switch (results.value)
-    {
-    case LEFT_BUTTON:
-      pos = min(180, pos + speed);
-      Serial.println("LEFT");
-      break;
-    case RIGHT_BUTTON:
-      pos = max(0, pos - speed);
-      Serial.println("RIGHT");
-      break;
-    case SELECT_BUTTON:
-      pos = 90;
-      Serial.println("SELECT");
-      break;
-    case UP_BUTTON:
-      speed = min(10, speed + 1);
-      Serial.println("UP");
-      break;
-    case DOWN_BUTTON:
-      speed = max(1, speed - 1);
-      Serial.println("DOWN");
-      break;
-    case BUTTON_1_PLAY:
-      pos = 0 * 20;
-      Serial.println("1");
-      break;
-    case BUTTON_2_INT:
-      pos = 1 * 20;
-      Serial.println("2");
-      break;
-    case BUTTON_3_RPT:
-      pos = 2 * 20;
-      Serial.println("3");
-      break;
-    case BUTTON_4_RDM:
-      pos = 3 * 20;
-      Serial.println("4");
-      break;
-    case BUTTON_5_10M:
-      pos = 4 * 20;
-      Serial.println("5");
-      break;
-    case BUTTON_6_10P:
-      pos = 5 * 20;
-      Serial.println("6");
-      break;
+    if (state >= 0 && state <= 180) {
+      Serial.print(">>> ");
+      Serial.println(state);
+      Serial.print("Turning servo 1 to ");
+      Serial.print(state);
+      Serial.println(" degrees");
+      turnServo(servo1, state);
+    } else {
+      Serial.println("!!! Invalid turning angle !!!");
     }
-    myServo.write(pos); // tell servo to go to position in variable 'pos'
-    previous_key = results.value;
-    irrecv.enableIRIn();
   }
+}
+
+/**
+ * Turn servos with specified angles
+ */
+void turnServos(int angle1, int angle2, int angle3) {
+  servo1.write(angle1);
+  servo2.write(angle2);
+  if (angle3 >= 90 && angle3 <= 170) {
+    servo3.write(angle3);
+  }
+  delay(DELAY);
+}
+
+/**
+ * Turn one specified servo with angle
+ */
+void turnServo(Servo &servo, int angle) {
+  servo.write(angle);
+  delay(DELAY);
+}
+
+/**
+ * Initialize all servos
+ */
+void initServos() {
+  servo1.write(145);
+  servo2.write(35);
+  servo3.write(130);
+  servo4.write(140);
+  servo5.write(80);
+  servo6.write(90);
+  delay(DELAY);
+
+  // servo1.write(145);
+  // servo2.write(115);
+  // servo3.write(170);
+  // delay(DELAY);
+
+  // servo1.write(90);
+  // servo2.write(90);
+  // servo3.write(155);
+  // delay(DELAY);
 }
